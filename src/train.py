@@ -64,7 +64,7 @@ def train_and_save_model():
 
 
     with open(MODEL_PATH, 'wb') as f:
-        pickle.dump(best_model, f)
+        pickle.dump(model, f)
 
     # 변수 중요도 저장
     importances = model.feature_importances_

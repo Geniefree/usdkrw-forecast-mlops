@@ -16,11 +16,54 @@ TICKERS = {
 }
 
 
+def is_weekend_closed(ts):
+    """
+    FX/선물 주말 비활성 구간:
+    금요일 22:00 UTC ~ 일요일 22:00 UTC 제외
+    """
+    ts = pd.Timestamp(ts).tz_convert("UTC")
+    weekday = ts.weekday()  # 월=0, ..., 금=4, 토=5, 일=6
+    hour = ts.hour
+
+    if weekday == 5:
+        return True
+    if weekday == 4 and hour >= 22:
+        return True
+    if weekday == 6 and hour < 22:
+        return True
+
+    return False
+
+
+def make_valid_rolling_index(end_time=None, periods=1440):
+    """
+    end_time 기준으로 뒤로 1분씩 이동하면서,
+    주말 비활성 구간을 제외한 최근 유효 1440분 timestamp 생성
+    """
+    if end_time is None:
+        end_time = pd.Timestamp.now(tz="UTC")
+    else:
+        end_time = pd.Timestamp(end_time).tz_convert("UTC")
+
+    valid_times = []
+    cur = end_time.floor("min")
+
+    while len(valid_times) < periods:
+        if not is_weekend_closed(cur):
+            valid_times.append(cur)
+        cur -= pd.Timedelta(minutes=1)
+
+    valid_times = sorted(valid_times)
+    return pd.DatetimeIndex(valid_times, name="timestamp")
+
+
 def collect_and_preprocess():
     now_et = datetime.now(ZoneInfo("America/New_York"))
-    start_et = now_et - timedelta(hours=24)
 
-    processed_each = {}
+    # 주말 비활성 구간을 건너뛸 수 있도록 넉넉하게 5일치 요청
+    start_et = now_et - timedelta(days=5)
+
+    raw_each = {}
 
     for name, ticker in TICKERS.items():
         df = yf.download(
@@ -36,21 +79,14 @@ def collect_and_preprocess():
         df.index = df.index.tz_convert("UTC")
         df = df.sort_index()
 
-        processed_each[name] = df
+        raw_each[name] = df
 
-    start_time = min(df.index.min() for df in processed_each.values())
-    end_time = max(df.index.max() for df in processed_each.values())
-
-    base_index = pd.date_range(
-        start=start_time,
-        end=end_time,
-        freq="1min",
-        tz="UTC",
-    )
+    # 주말 비활성 구간을 제외한 최근 유효 1440분 기준 timestamp 생성
+    base_index = make_valid_rolling_index(periods=1440)
 
     final_parts = {}
 
-    for name, df in processed_each.items():
+    for name, df in raw_each.items():
         reindexed = df.reindex(base_index)
         reindexed.index.name = "timestamp"
 
@@ -58,7 +94,6 @@ def collect_and_preprocess():
         final_parts[name] = interpolated
 
     final_df = pd.concat(final_parts.values(), axis=1)
-    final_df = final_df.tail(1440)
 
     return final_df
 

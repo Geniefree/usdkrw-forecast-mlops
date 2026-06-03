@@ -1,10 +1,18 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-
+import os
+import sys
 import pandas as pd
 import yfinance as yf
 from sqlalchemy import create_engine
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from Inference import predict_next_15m
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
+CSV_PATH = os.path.join(PROCESSED_DIR, "market_data_1m_24h_interpolated.csv")
+MODEL_PATH = os.path.join(PROCESSED_DIR, "predict_model.pkl")
 
 TICKERS = {
     "BTC": "BTC-USD",
@@ -99,7 +107,7 @@ def collect_and_preprocess():
 
 
 def save_to_csv(final_df):
-    final_df.to_csv("data/processed/market_data_1m_24h_interpolated.csv")
+    final_df.to_csv(CSV_PATH)
 
 
 def save_to_postgres(final_df):
@@ -125,3 +133,4 @@ if __name__ == "__main__":
     save_to_postgres(final_df)
 
     print("CSV 및 PostgreSQL 저장 완료")
+    predict_next_15m(data_path=CSV_PATH, model_path=MODEL_PATH)

@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+
+  jupyter:
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/app
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: marketdb
+    ports:
+      - "5432:5432"

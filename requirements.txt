@@ -1,0 +1,10 @@
+pandas
+numpy
+yfinance
+scikit-learn
+sqlalchemy
+psycopg2-binary
+jupyter
+notebook
+matplotlib
+plotly
